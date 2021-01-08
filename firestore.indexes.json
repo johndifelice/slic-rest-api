@@ -1,0 +1,55 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "word-bounty",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "word",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "bounty",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "word-bounty",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "bounty",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "word",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "words",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "word",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
