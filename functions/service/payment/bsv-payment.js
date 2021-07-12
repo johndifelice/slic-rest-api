@@ -1,63 +1,65 @@
 'use strict'
 
-const bsv = require('bsv');
-const {Forge} = require('txforge');
-const https = require('https');
+function Payment(_privKey){
+    const bsv = require('bsv');
+    const {Forge} = require('txforge');
+    const https = require('https');
 
-function Payment(_privKey, _toAddress, _satAmount) {
+    this.privKey = new bsv.PrivKey().fromString(_privKey);
+    this.keyPair = new bsv.KeyPair().fromPrivKey(this.privKey);
+    this.pubKey = this.keyPair.pubKey;
+    //this.fromAddress = new bsv.Address().fromPubKey(this.pubKey);
 
-    var fromAddress = '';
-    var toAddress = _toAddress;
-    var satAmount = _satAmount;
-    var privKey = new bsv.PrivKey().fromString(_privKey);
+    this.toAddress = '';
+    this.satAmount = '';
     this.satoshiBalance;
-
-    console.log('PrivateKey: ', privKey.toString());
-
-    const keyPair = new bsv.KeyPair().fromPrivKey(privKey);
-    const pubKey = keyPair.pubKey;
-    console.log('Public Key: ',pubKey.toString());
-
-    fromAddress = new bsv.Address().fromPubKey(pubKey);
-    console.log('Address: ',fromAddress.toString());
-
-    this.toAddress = toAddress;
-    this.satAmount = satAmount;
     
+    this.sendPayment = (_toAddress, _satAmount,_opReturn) => {
+        this.toAddress = _toAddress;
+        this.satAmount = _satAmount;
+        
+        return new Promise(resolve => {
+            
+            setTimeout(() => {
+                // privKey = 'L1FJLDZWMrBR7JmXKPCfzrUZahBWqLdPaGnDjWQJLJFXAKmvp67V'
+                //privKey = new bsv.PrivKey().fromString(privKey);
+                console.log('PrivateKey: ', this.privKey.toString());
 
-    this.sendPayment = () => {
-        // privKey = 'L1FJLDZWMrBR7JmXKPCfzrUZahBWqLdPaGnDjWQJLJFXAKmvp67V'
-        //privKey = new bsv.PrivKey().fromString(privKey);
-        console.log('PrivateKey: ', privKey.toString());
+                //const keyPair = new bsv.KeyPair().fromPrivKey(this.privKey);
+                //const pubKey = keyPair.pubKey;
+                console.log('Public Key: ',this.pubKey.toString());
 
-        const keyPair = new bsv.KeyPair().fromPrivKey(privKey);
-        const pubKey = keyPair.pubKey;
-        console.log('Public Key: ',pubKey.toString());
+                //this.fromAddress = new bsv.Address().fromPubKey(this.pubKey);
+                this.fromAddress = new bsv.Address().fromString("1AMzdZFfkJC7PnxXQndCPKp2q2v8TZSW9E")
+                console.log('fromAddress: ',this.fromAddress.toString());
+            
+                https.get(`https://api.mattercloud.net/api/v3/main/address/${this.fromAddress.toString()}/utxo`, (res) => {
+                    console.log("Before mattercloud utxo get.")
+                    let data = '';
+                    res.on('data',(chunk) => {
+                        data += chunk;
+                    });
 
-        this.fromAddress = new bsv.Address().fromPubKey(pubKey);
-        console.log('Address: ',fromAddress.toString());
+                    res.on('end', () => {
+                        console.log("After mattercloud utxo get.")
+                        let resp = JSON.parse(data);
+                        //console.log(resp);
+                        console.log("utxo: ", resp);
+                        console.log("data: ",data);
+                        let rawTx = buildForge(resp[0]);
+                        console.log('Raw txt: ', rawTx);
 
-        //this.fromAddress = fromAddress;
-        this.toAddress = toAddress;
-        this.satAmount = satAmount;
-       
-        //const address = this.fromAddress;
+                        postRawTx(rawTx);
+                        console.log("SUCCESS");
+                        resolve('SUCCESS');
+                    });    
 
-        https.get(`https://api.mattercloud.net/api/v3/main/address/${fromAddress.toString()}/utxo`, (res) => {
-            let data = '';
-            res.on('data',(chunk) => {
-                data += chunk;
-            });
+                    res.on('error', error => {
+                        console.error("Error:",error)
+                    })
+                })
 
-            res.on('end', () => {
-                let resp = JSON.parse(data);
-                console.log(resp);
-
-                let rawTx = buildForge(resp[0]);
-                console.log('Raw txt: ', rawTx);
-
-                postRawTx(rawTx);
-            });    
+            },2000);    
         })
     }
 
@@ -66,7 +68,7 @@ function Payment(_privKey, _toAddress, _satAmount) {
         return new Promise(resolve => {
             setTimeout(() => {
 
-                https.get(`https://api.mattercloud.net/api/v3/main/address/${fromAddress.toString()}/utxo`, (res) => {
+                https.get(`https://api.mattercloud.net/api/v3/main/address/${this.fromAddress.toString()}/utxo`, (res) => {
                     let data = '';
                     res.on('data', (chunk) => {
                         data += chunk;
@@ -122,19 +124,33 @@ function Payment(_privKey, _toAddress, _satAmount) {
     }
     
     var buildForge = (utxo) => {
-            const forge  = new Forge ({
-                inputs: [utxo],
-                outputs: [
-                    {
-                        to: this.toAddress,
-                        satoshis: this.satAmount
-                    },
-                ],
-                changeTo: utxo.address
-            });
+            console.log("In buildForge");
+            //console.log("utxo: ", utxo);
+            console.log("build-forge opReturn: ", _opReturn);
+            try{
+                const forge  = new Forge ({
+                    inputs: [utxo],
+                    outputs: [
+                        {
+                            to: this.toAddress,
+                            satoshis: this.satAmount
+                        }
+                        // ,
+                        // {
+                        //     data:['19HxigV4QyBv3tHpQVcUEQyq1pzZVdoAut','opReturn value','utf-8']
+                        // }
+                    ],
+                    changeTo: utxo.address
+                });
+            } catch (error){
+                log.console("buildForge Error: ", error);
+            }
+
+            console.log("forge: ", forge);
 
             forge.build().sign({keyPair});
             
+            console.log("Raw transaction: ", forge.tx.toHex());
             return forge.tx.toHex();
     }
 }
