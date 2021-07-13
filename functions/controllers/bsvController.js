@@ -9,7 +9,12 @@ const { OP_RETURN_KEY, SATOSHIS_PER_BSV } = require("../constants/key-constants"
 const satoshisPerBSV = SATOSHIS_PER_BSV;
 const PRIVKEY = "L1FJLDZWMrBR7JmXKPCfzrUZahBWqLdPaGnDjWQJLJFXAKmvp67V";
 
-bsvApp.use(cors({origin: true}));
+//bsvApp.use(cors({origin: true}));
+bsvApp.use(function (req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+  });
 
 bsvApp.get("/utxos/:address", async (req, res) => {
     const utxos = await getUtxos(req.params.address);   
@@ -18,11 +23,23 @@ bsvApp.get("/utxos/:address", async (req, res) => {
 });
 
 bsvApp.get("/utxos/balance/:address", async (req, res) => {
-    const axios = require('axios');
-    const json = await axios.get(`https://api.mattercloud.net/api/v3/main/address/${req.params.address}/utxo`);
-    `https://api.mattercloud.net/api/v3/main/address/${address.toString()}/utxo`
+    // const axios = require('axios');
+    // const json = await axios.get(`https://api.mattercloud.net/api/v3/main/address/${req.params.address}/utxo`);
+    // `https://api.mattercloud.net/api/v3/main/address/${address.toString()}/utxo`
+    const utxos = await getUTXOs2(req.params.address);
+    const rate = await getRate();
+    var balance = 0;
+    for(let i = 0; i < utxos.length; i++){
+        balance += Number(utxos[i].satoshis);
+    }
+    const bsv = balance / SATOSHIS_PER_BSV * Number(rate);
+    jsonReturn = {
+        "satoshis" : balance,
+        "bsv" : bsv,
+        "exchangeRate" : Number(rate),
+    }
 
-    res.status(200).send(JSON.stringify({"utxos": json["data"]}));
+    res.status(200).send(JSON.stringify({"balance": jsonReturn}));
 });
 
 bsvApp.get("/rawtx/:fromAddress/:toAddress/:satAmount/:opReturn", async (req, res) => {
@@ -132,6 +149,7 @@ async function getAddress(paymail){
 }
 
 async function getRate(){
+    const axios = require('axios');
     let jsonRate = await axios.get('https://api.whatsonchain.com/v1/bsv/main/exchangerate');
     let rate = jsonRate["data"]["rate"];
     console.log("rate: ",rate);
